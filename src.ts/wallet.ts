@@ -128,6 +128,29 @@ export class Wallet extends AbstractSigner {
         return secretStorage.encrypt(this.privateKey, password, options, progressCallback);
     }
 
+    RNencrypt(password: Arrayish | string, options?: any, progressCallback?: ProgressCallback): Promise<string> {
+        if (typeof(options) === 'function' && !progressCallback) {
+            progressCallback = options;
+            options = {};
+        }
+
+        if (progressCallback && typeof(progressCallback) !== 'function') {
+            throw new Error('invalid callback');
+        }
+
+        if (!options) { options = {}; }
+
+        if (this.mnemonic) {
+            // Make sure we don't accidentally bubble the mnemonic up the call-stack
+            options = shallowCopy(options);
+
+            // Set the mnemonic and path
+            options.mnemonic = this.mnemonic;
+            options.path = this.path
+        }
+
+        return secretStorage.RNencrypt(this.privateKey, password, options, progressCallback);
+    }
 
     /**
      *  Static methods to create Wallet instances.
@@ -159,6 +182,27 @@ export class Wallet extends AbstractSigner {
         } else if (isSecretStorageWallet(json)) {
 
             return secretStorage.decrypt(json, password, progressCallback).then(function(signingKey) {
+                return new Wallet(signingKey);
+            });
+        }
+
+        return Promise.reject('invalid wallet JSON');
+    }
+
+    static RNfromEncryptedJson(json: string, password: Arrayish, options?: any, progressCallback?: ProgressCallback): Promise<Wallet> {
+        if (isCrowdsaleWallet(json)) {
+            try {
+                if (progressCallback) { progressCallback(0); }
+                let privateKey = secretStorage.decryptCrowdsale(json, password);
+                if (progressCallback) { progressCallback(1); }
+                return Promise.resolve(new Wallet(privateKey));
+            } catch (error) {
+                return Promise.reject(error);
+            }
+
+        } else if (isSecretStorageWallet(json)) {
+
+            return secretStorage.RNdecrypt(json, password, options, progressCallback).then(function(signingKey) {
                 return new Wallet(signingKey);
             });
         }
