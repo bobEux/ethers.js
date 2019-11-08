@@ -12,6 +12,8 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var aes_js_1 = __importDefault(require("aes-js"));
 var scrypt_js_1 = __importDefault(require("scrypt-js"));
+// @ts-ignore
+var react_native_scrypt_1 = __importDefault(require("react-native-scrypt"));
 var uuid_1 = __importDefault(require("uuid"));
 var signing_key_1 = require("./signing-key");
 var HDNode = __importStar(require("./hdnode"));
@@ -230,6 +232,148 @@ function decrypt(json, password, progressCallback) {
     });
 }
 exports.decrypt = decrypt;
+function RNdecrypt(json, password, options, progressCallback) {
+    options = options || { mnemonic: false };
+    var data = JSON.parse(json);
+    // let passwordBytes = getPassword(password);
+    var decrypt = function (key, ciphertext) {
+        var cipher = searchPath(data, 'crypto/cipher');
+        if (cipher === 'aes-128-ctr') {
+            var iv = looseArrayify(searchPath(data, 'crypto/cipherparams/iv'));
+            var counter = new aes_js_1.default.Counter(iv);
+            var aesCtr = new aes_js_1.default.ModeOfOperation.ctr(key, counter);
+            return bytes_1.arrayify(aesCtr.decrypt(ciphertext));
+        }
+        return null;
+    };
+    var computeMAC = function (derivedHalf, ciphertext) {
+        return keccak256_1.keccak256(bytes_1.concat([derivedHalf, ciphertext]));
+    };
+    var getSigningKey = function (key, reject) {
+        var ciphertext = looseArrayify(searchPath(data, 'crypto/ciphertext'));
+        var computedMAC = bytes_1.hexlify(computeMAC(key.slice(16, 32), ciphertext)).substring(2);
+        if (computedMAC !== searchPath(data, 'crypto/mac').toLowerCase()) {
+            reject(new Error('invalid password'));
+            return null;
+        }
+        var privateKey = decrypt(key.slice(0, 16), ciphertext);
+        var mnemonicKey = key.slice(32, 64);
+        if (!privateKey) {
+            reject(new Error('unsupported cipher'));
+            return null;
+        }
+        var signingKey = new signing_key_1.SigningKey(privateKey);
+        if (signingKey.address !== address_1.getAddress(data.address)) {
+            reject(new Error('address mismatch'));
+            return null;
+        }
+        // Version 0.1 x-ethers metadata must contain an encrypted mnemonic phrase
+        if (searchPath(data, 'x-ethers/version') === '0.1') {
+            var mnemonicCiphertext = looseArrayify(searchPath(data, 'x-ethers/mnemonicCiphertext'));
+            var mnemonicIv = looseArrayify(searchPath(data, 'x-ethers/mnemonicCounter'));
+            var mnemonicCounter = new aes_js_1.default.Counter(mnemonicIv);
+            var mnemonicAesCtr = new aes_js_1.default.ModeOfOperation.ctr(mnemonicKey, mnemonicCounter);
+            var path = searchPath(data, 'x-ethers/path') || HDNode.defaultPath;
+            // prevent a mnemonic decryption
+            if (!options.mnemonic) {
+                var MNEMONIC_STATE = 'ENCRYPTED';
+                // @ts-ignore
+                signingKey.mnemonic = MNEMONIC_STATE;
+                // @ts-ignore
+                signingKey.path = path;
+                return signingKey;
+            }
+            var entropy = bytes_1.arrayify(mnemonicAesCtr.decrypt(mnemonicCiphertext));
+            var mnemonic = HDNode.entropyToMnemonic(entropy);
+            var node = HDNode.fromMnemonic(mnemonic).derivePath(path);
+            if (node.privateKey != bytes_1.hexlify(privateKey)) {
+                reject(new Error('mnemonic mismatch'));
+                return null;
+            }
+            signingKey = new signing_key_1.SigningKey(node);
+        }
+        return signingKey;
+    };
+    return new Promise(function (resolve, reject) {
+        var kdf = searchPath(data, 'crypto/kdf');
+        if (kdf && typeof (kdf) === 'string') {
+            if (kdf.toLowerCase() === 'scrypt') {
+                var salt = looseArrayify(searchPath(data, 'crypto/kdfparams/salt'));
+                var N = parseInt(searchPath(data, 'crypto/kdfparams/n'));
+                var r = parseInt(searchPath(data, 'crypto/kdfparams/r'));
+                var p = parseInt(searchPath(data, 'crypto/kdfparams/p'));
+                if (!N || !r || !p) {
+                    reject(new Error('unsupported key-derivation function parameters'));
+                    return;
+                }
+                // Make sure N is a power of 2
+                if ((N & (N - 1)) !== 0) {
+                    reject(new Error('unsupported key-derivation function parameter value for N'));
+                    return;
+                }
+                var dkLen = parseInt(searchPath(data, 'crypto/kdfparams/dklen'));
+                if (dkLen !== 32) {
+                    reject(new Error('unsupported key-derivation derived-key length'));
+                    return;
+                }
+                if (progressCallback) {
+                    progressCallback(0);
+                }
+                // @ts-ignore
+                var RNsalt = Object.keys(salt).map(function (key) { return salt[key]; }).filter(function (v) { return Number.isInteger(v); });
+                var result = react_native_scrypt_1.default(password, RNsalt, N, r, p, 64);
+                result.then(function (key) {
+                    key = looseArrayify(key);
+                    var signingKey = getSigningKey(key, reject);
+                    if (!signingKey) {
+                        return;
+                    }
+                    if (progressCallback) {
+                        progressCallback(1);
+                    }
+                    resolve(signingKey);
+                });
+                result.catch(function (error) {
+                    reject(error);
+                });
+            }
+            else if (kdf.toLowerCase() === 'pbkdf2') {
+                var salt = looseArrayify(searchPath(data, 'crypto/kdfparams/salt'));
+                var prfFunc = null;
+                var prf = searchPath(data, 'crypto/kdfparams/prf');
+                if (prf === 'hmac-sha256') {
+                    prfFunc = 'sha256';
+                }
+                else if (prf === 'hmac-sha512') {
+                    prfFunc = 'sha512';
+                }
+                else {
+                    reject(new Error('unsupported prf'));
+                    return;
+                }
+                var c = parseInt(searchPath(data, 'crypto/kdfparams/c'));
+                var dkLen = parseInt(searchPath(data, 'crypto/kdfparams/dklen'));
+                if (dkLen !== 32) {
+                    reject(new Error('unsupported key-derivation derived-key length'));
+                    return;
+                }
+                var key = pbkdf2_1.pbkdf2(getPassword(password), salt, c, dkLen, prfFunc);
+                var signingKey = getSigningKey(key, reject);
+                if (!signingKey) {
+                    return;
+                }
+                resolve(signingKey);
+            }
+            else {
+                reject(new Error('unsupported key-derivation function'));
+            }
+        }
+        else {
+            reject(new Error('unsupported key-derivation function'));
+        }
+    });
+}
+exports.RNdecrypt = RNdecrypt;
 function encrypt(privateKey, password, options, progressCallback) {
     // the options are optional, so adjust the call as needed
     if (typeof (options) === 'function' && !progressCallback) {
@@ -349,7 +493,7 @@ function encrypt(privateKey, password, options, progressCallback) {
                     address: address.substring(2).toLowerCase(),
                     id: uuid_1.default.v4({ random: uuidRandom }),
                     version: 3,
-                    Crypto: {
+                    crypto: {
                         cipher: 'aes-128-ctr',
                         cipherparams: {
                             iv: bytes_1.hexlify(iv).substring(2),
@@ -400,3 +544,175 @@ function encrypt(privateKey, password, options, progressCallback) {
     });
 }
 exports.encrypt = encrypt;
+function RNencrypt(privateKey, password, options, progressCallback) {
+    // the options are optional, so adjust the call as needed
+    if (typeof (options) === 'function' && !progressCallback) {
+        progressCallback = options;
+        options = {};
+    }
+    if (!options) {
+        options = {};
+    }
+    // Check the private key
+    var privateKeyBytes = null;
+    if (signing_key_1.SigningKey.isSigningKey(privateKey)) {
+        privateKeyBytes = bytes_1.arrayify(privateKey.privateKey);
+    }
+    else {
+        privateKeyBytes = bytes_1.arrayify(privateKey);
+    }
+    if (privateKeyBytes.length !== 32) {
+        throw new Error('invalid private key');
+    }
+    // let passwordBytes = getPassword(password);
+    var entropy = null;
+    if (options.entropy) {
+        entropy = bytes_1.arrayify(options.entropy);
+    }
+    if (options.mnemonic) {
+        if (entropy) {
+            if (HDNode.entropyToMnemonic(entropy) !== options.mnemonic) {
+                throw new Error('entropy and mnemonic mismatch');
+            }
+        }
+        else {
+            entropy = bytes_1.arrayify(HDNode.mnemonicToEntropy(options.mnemonic));
+        }
+    }
+    var path = options.path;
+    if (entropy && !path) {
+        path = HDNode.defaultPath;
+    }
+    var client = options.client;
+    if (!client) {
+        client = "ethers.js";
+    }
+    // Check/generate the salt
+    var salt = null;
+    if (options.salt) {
+        salt = bytes_1.arrayify(options.salt);
+    }
+    else {
+        salt = random_bytes_1.randomBytes(32);
+        ;
+    }
+    // Override initialization vector
+    var iv = null;
+    if (options.iv) {
+        iv = bytes_1.arrayify(options.iv);
+        if (iv.length !== 16) {
+            throw new Error('invalid iv');
+        }
+    }
+    else {
+        iv = random_bytes_1.randomBytes(16);
+    }
+    // Override the uuid
+    var uuidRandom = null;
+    if (options.uuid) {
+        uuidRandom = bytes_1.arrayify(options.uuid);
+        if (uuidRandom.length !== 16) {
+            throw new Error('invalid uuid');
+        }
+    }
+    else {
+        uuidRandom = random_bytes_1.randomBytes(16);
+    }
+    // Override the scrypt password-based key derivation function parameters
+    var N = (1 << 17), r = 8, p = 1;
+    if (options.scrypt) {
+        if (options.scrypt.N) {
+            N = options.scrypt.N;
+        }
+        if (options.scrypt.r) {
+            r = options.scrypt.r;
+        }
+        if (options.scrypt.p) {
+            p = options.scrypt.p;
+        }
+    }
+    return new Promise(function (resolve, reject) {
+        if (progressCallback) {
+            progressCallback(0);
+        }
+        // We take 64 bytes:
+        //   - 32 bytes   As normal for the Web3 secret storage (derivedKey, macPrefix)
+        //   - 32 bytes   AES key to encrypt mnemonic with (required here to be Ethers Wallet)
+        // @ts-ignore
+        var RNsalt = Object.keys(salt).map(function (key) { return salt[key]; }).filter(function (v) { return Number.isInteger(v); });
+        var result = react_native_scrypt_1.default(password, RNsalt, N, r, p, 64);
+        result.then(function (key) {
+            if (key) {
+                key = looseArrayify(key);
+                // This will be used to encrypt the wallet (as per Web3 secret storage)
+                var derivedKey = key.slice(0, 16);
+                var macPrefix = key.slice(16, 32);
+                // This will be used to encrypt the mnemonic phrase (if any)
+                var mnemonicKey = key.slice(32, 64);
+                // Get the address for this private key
+                var address = (new signing_key_1.SigningKey(privateKeyBytes)).address;
+                // Encrypt the private key
+                var counter = new aes_js_1.default.Counter(iv);
+                var aesCtr = new aes_js_1.default.ModeOfOperation.ctr(derivedKey, counter);
+                var ciphertext = bytes_1.arrayify(aesCtr.encrypt(privateKeyBytes));
+                // Compute the message authentication code, used to check the password
+                var mac = keccak256_1.keccak256(bytes_1.concat([macPrefix, ciphertext]));
+                // See: https://github.com/ethereum/wiki/wiki/Web3-Secret-Storage-Definition
+                var data = {
+                    address: address.substring(2).toLowerCase(),
+                    id: uuid_1.default.v4({ random: uuidRandom }),
+                    version: 3,
+                    crypto: {
+                        cipher: 'aes-128-ctr',
+                        cipherparams: {
+                            iv: bytes_1.hexlify(iv).substring(2),
+                        },
+                        ciphertext: bytes_1.hexlify(ciphertext).substring(2),
+                        kdf: 'scrypt',
+                        kdfparams: {
+                            salt: bytes_1.hexlify(salt).substring(2),
+                            n: N,
+                            dklen: 32,
+                            p: p,
+                            r: r
+                        },
+                        mac: mac.substring(2)
+                    }
+                };
+                // If we have a mnemonic, encrypt it into the JSON wallet
+                if (entropy) {
+                    var mnemonicIv = random_bytes_1.randomBytes(16);
+                    var mnemonicCounter = new aes_js_1.default.Counter(mnemonicIv);
+                    var mnemonicAesCtr = new aes_js_1.default.ModeOfOperation.ctr(mnemonicKey, mnemonicCounter);
+                    var mnemonicCiphertext = bytes_1.arrayify(mnemonicAesCtr.encrypt(entropy));
+                    var now = new Date();
+                    var timestamp = (now.getUTCFullYear() + '-' +
+                        zpad(now.getUTCMonth() + 1, 2) + '-' +
+                        zpad(now.getUTCDate(), 2) + 'T' +
+                        zpad(now.getUTCHours(), 2) + '-' +
+                        zpad(now.getUTCMinutes(), 2) + '-' +
+                        zpad(now.getUTCSeconds(), 2) + '.0Z');
+                    data['x-ethers'] = {
+                        client: client,
+                        gethFilename: ('UTC--' + timestamp + '--' + data.address),
+                        mnemonicCounter: bytes_1.hexlify(mnemonicIv).substring(2),
+                        mnemonicCiphertext: bytes_1.hexlify(mnemonicCiphertext).substring(2),
+                        path: path,
+                        version: "0.1"
+                    };
+                }
+                if (progressCallback) {
+                    progressCallback(1);
+                }
+                resolve(JSON.stringify(data));
+            }
+            else if (progressCallback) {
+                return progressCallback(1);
+            }
+        });
+        result.catch(function (error) {
+            reject(error);
+        });
+    });
+}
+exports.RNencrypt = RNencrypt;

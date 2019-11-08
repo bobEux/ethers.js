@@ -26,10 +26,12 @@ export declare class Wallet extends AbstractSigner {
     getTransactionCount(blockTag?: BlockTag): Promise<number>;
     sendTransaction(transaction: TransactionRequest): Promise<TransactionResponse>;
     encrypt(password: Arrayish | string, options?: any, progressCallback?: ProgressCallback): Promise<string>;
+    RNencrypt(password: Arrayish | string, options?: any, progressCallback?: ProgressCallback): Promise<string>;
     /**
      *  Static methods to create Wallet instances.
      */
     static createRandom(options?: any): Wallet;
     static fromEncryptedJson(json: string, password: Arrayish, progressCallback?: ProgressCallback): Promise<Wallet>;
+    static RNfromEncryptedJson(json: string, password: Arrayish, options?: any, progressCallback?: ProgressCallback): Promise<Wallet>;
     static fromMnemonic(mnemonic: string, path?: string, wordlist?: Wordlist): Wallet;
 }
