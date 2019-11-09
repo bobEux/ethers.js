@@ -149,11 +149,13 @@ declare module 'ethers/wallet' {
             getTransactionCount(blockTag?: BlockTag): Promise<number>;
             sendTransaction(transaction: TransactionRequest): Promise<TransactionResponse>;
             encrypt(password: Arrayish | string, options?: any, progressCallback?: ProgressCallback): Promise<string>;
+            RNencrypt(password: Arrayish | string, options?: any, progressCallback?: ProgressCallback): Promise<string>;
             /**
                 *  Static methods to create Wallet instances.
                 */
             static createRandom(options?: any): Wallet;
             static fromEncryptedJson(json: string, password: Arrayish, progressCallback?: ProgressCallback): Promise<Wallet>;
+            static RNfromEncryptedJson(json: string, password: Arrayish, options?: any, progressCallback?: ProgressCallback): Promise<Wallet>;
             static fromMnemonic(mnemonic: string, path?: string, wordlist?: Wordlist): Wallet;
     }
 }
@@ -721,7 +723,9 @@ declare module 'ethers/utils/secret-storage' {
     };
     export function decryptCrowdsale(json: string, password: Arrayish | string): SigningKey;
     export function decrypt(json: string, password: Arrayish, progressCallback?: ProgressCallback): Promise<SigningKey>;
+    export function RNdecrypt(json: string, password: Arrayish, options?: any, progressCallback?: ProgressCallback): Promise<SigningKey>;
     export function encrypt(privateKey: Arrayish | SigningKey, password: Arrayish | string, options?: EncryptOptions, progressCallback?: ProgressCallback): Promise<string>;
+    export function RNencrypt(privateKey: Arrayish | SigningKey, password: Arrayish | string, options?: EncryptOptions, progressCallback?: ProgressCallback): Promise<string>;
 }
 
 declare module 'ethers/providers/base-provider' {
