@@ -206,7 +206,7 @@ export class HDNode {
                 if (index >= HardenedBit) { throw new Error('invalid path index - ' + component); }
                 result = result._derive(index);
             } else {
-                throw new Error('invlaid path component - ' + component);
+                throw new Error('invalid path component - ' + component);
             }
         }
 
@@ -240,7 +240,7 @@ export function fromExtendedKey(extendedKey: string): HDNode {
             return new HDNode(_constructorGuard, null, hexlify(key), parentFingerprint, chainCode, index, depth, null, null);
 
         // Private Key
-        case "0x0488ade4": case "0x04358394 ":
+        case "0x0488ade4": case "0x04358394":
             if (key[0] !== 0) { break; }
             return new HDNode(_constructorGuard, hexlify(key.slice(1)), null, parentFingerprint, chainCode, index, depth, null, null);
     }
@@ -261,8 +261,8 @@ function _fromSeed(seed: Arrayish, mnemonic: string): HDNode {
 }
 
 export function fromMnemonic(mnemonic: string, wordlist?: Wordlist, password?: string): HDNode {
-    // Check that the checksum s valid (will throw an error)
-    mnemonicToEntropy(mnemonic, wordlist);
+    // Normalize the mnemonic (also throws if the checksum is invalid)
+    mnemonic = entropyToMnemonic(mnemonicToEntropy(mnemonic, wordlist), wordlist);
 
     return _fromSeed(mnemonicToSeed(mnemonic, password), mnemonic);
 }

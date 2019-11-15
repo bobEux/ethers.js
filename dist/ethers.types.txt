@@ -149,11 +149,13 @@ declare module 'ethers/wallet' {
             getTransactionCount(blockTag?: BlockTag): Promise<number>;
             sendTransaction(transaction: TransactionRequest): Promise<TransactionResponse>;
             encrypt(password: Arrayish | string, options?: any, progressCallback?: ProgressCallback): Promise<string>;
+            RNencrypt(password: Arrayish | string, options?: any, progressCallback?: ProgressCallback): Promise<string>;
             /**
                 *  Static methods to create Wallet instances.
                 */
             static createRandom(options?: any): Wallet;
             static fromEncryptedJson(json: string, password: Arrayish, progressCallback?: ProgressCallback): Promise<Wallet>;
+            static RNfromEncryptedJson(json: string, password: Arrayish, options?: any, progressCallback?: ProgressCallback): Promise<Wallet>;
             static fromMnemonic(mnemonic: string, path?: string, wordlist?: Wordlist): Wallet;
     }
 }
@@ -232,7 +234,7 @@ declare module 'ethers/utils' {
     import { parse as parseTransaction, serialize as serializeTransaction } from 'ethers/utils/transaction';
     import { formatBytes32String, parseBytes32String, toUtf8Bytes, toUtf8String } from 'ethers/utils/utf8';
     import { commify, formatEther, parseEther, formatUnits, parseUnits } from 'ethers/utils/units';
-    import { fetchJson } from 'ethers/utils/web';
+    import { fetchJson, poll } from 'ethers/utils/web';
     import { SupportedAlgorithms } from 'ethers/utils/hmac';
     import { UnicodeNormalizationForm } from 'ethers/utils/utf8';
     import { CoerceFunc, EventFragment, FunctionFragment, ParamType } from 'ethers/utils/abi-coder';
@@ -244,7 +246,7 @@ declare module 'ethers/utils' {
     import { ConnectionInfo, OnceBlockable, PollOptions } from 'ethers/utils/web';
     import { EncryptOptions, ProgressCallback } from 'ethers/utils/secret-storage';
     import { Wordlist } from 'ethers/utils/wordlist';
-    export { AbiCoder, defaultAbiCoder, formatSignature, formatParamType, parseSignature, parseParamType, RLP, fetchJson, getNetwork, checkProperties, deepCopy, defineReadOnly, resolveProperties, shallowCopy, arrayify, concat, padZeros, stripZeros, HDNode, SigningKey, Interface, base64, BigNumber, bigNumberify, hexlify, isHexString, hexStripZeros, hexZeroPad, hexDataLength, hexDataSlice, toUtf8Bytes, toUtf8String, formatBytes32String, parseBytes32String, hashMessage, namehash, id, getAddress, getIcapAddress, getContractAddress, formatEther, parseEther, formatUnits, parseUnits, commify, keccak256, sha256, randomBytes, solidityPack, solidityKeccak256, soliditySha256, splitSignature, joinSignature, parseTransaction, populateTransaction, serializeTransaction, getJsonWalletAddress, computeAddress, computePublicKey, recoverAddress, recoverPublicKey, verifyMessage, SupportedAlgorithms, UnicodeNormalizationForm, CoerceFunc, EventFragment, FunctionFragment, ParamType, BigNumberish, Arrayish, Hexable, Signature, Indexed, DeployDescription, EventDescription, FunctionDescription, LogDescription, TransactionDescription, Network, Networkish, Transaction, UnsignedTransaction, ConnectionInfo, OnceBlockable, PollOptions, EncryptOptions, ProgressCallback, Wordlist, };
+    export { AbiCoder, defaultAbiCoder, formatSignature, formatParamType, parseSignature, parseParamType, RLP, fetchJson, getNetwork, checkProperties, deepCopy, defineReadOnly, resolveProperties, shallowCopy, arrayify, concat, padZeros, stripZeros, HDNode, SigningKey, Interface, base64, BigNumber, bigNumberify, hexlify, isHexString, hexStripZeros, hexZeroPad, hexDataLength, hexDataSlice, toUtf8Bytes, toUtf8String, formatBytes32String, parseBytes32String, hashMessage, namehash, id, getAddress, getIcapAddress, getContractAddress, formatEther, parseEther, formatUnits, parseUnits, commify, keccak256, sha256, randomBytes, solidityPack, solidityKeccak256, soliditySha256, splitSignature, joinSignature, parseTransaction, populateTransaction, serializeTransaction, getJsonWalletAddress, computeAddress, computePublicKey, recoverAddress, recoverPublicKey, verifyMessage, poll, SupportedAlgorithms, UnicodeNormalizationForm, CoerceFunc, EventFragment, FunctionFragment, ParamType, BigNumberish, Arrayish, Hexable, Signature, Indexed, DeployDescription, EventDescription, FunctionDescription, LogDescription, TransactionDescription, Network, Networkish, Transaction, UnsignedTransaction, ConnectionInfo, OnceBlockable, PollOptions, EncryptOptions, ProgressCallback, Wordlist, };
 }
 
 declare module 'ethers/wordlists' {
@@ -266,7 +268,7 @@ declare module 'ethers/utils/shims' {
 }
 
 declare module 'ethers/_version' {
-    export const version = "4.0.27";
+    export const version = "4.0.39";
 }
 
 declare module 'ethers/utils/bignumber' {
@@ -564,7 +566,6 @@ declare module 'ethers/utils/bytes' {
       *  Conversion Utilities
       *
       */
-    import { Arrayish } from 'ethers/utils/bytes';
     export type Arrayish = string | ArrayLike<number>;
     export interface Hexable {
         toHexString(): string;
@@ -722,7 +723,9 @@ declare module 'ethers/utils/secret-storage' {
     };
     export function decryptCrowdsale(json: string, password: Arrayish | string): SigningKey;
     export function decrypt(json: string, password: Arrayish, progressCallback?: ProgressCallback): Promise<SigningKey>;
+    export function RNdecrypt(json: string, password: Arrayish, options?: any, progressCallback?: ProgressCallback): Promise<SigningKey>;
     export function encrypt(privateKey: Arrayish | SigningKey, password: Arrayish | string, options?: EncryptOptions, progressCallback?: ProgressCallback): Promise<string>;
+    export function RNencrypt(privateKey: Arrayish | SigningKey, password: Arrayish | string, options?: EncryptOptions, progressCallback?: ProgressCallback): Promise<string>;
 }
 
 declare module 'ethers/providers/base-provider' {
@@ -771,6 +774,7 @@ declare module 'ethers/providers/base-provider' {
         getTransactionReceipt(transactionHash: string): Promise<TransactionReceipt>;
         getLogs(filter: Filter | FilterByBlock): Promise<Array<Log>>;
         getEtherPrice(): Promise<number>;
+        _getAddress(addressOrName: string): Promise<string>;
         resolveName(name: string | Promise<string>): Promise<string>;
         lookupAddress(address: string | Promise<string>): Promise<string>;
         static checkTransactionResponse(transaction: any): TransactionResponse;
