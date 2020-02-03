@@ -10,9 +10,10 @@ var tsProject = ts.createProject("tsconfig.json");
 var browserify = require("browserify");
 var source = require('vinyl-source-stream');
 var tsify = require("tsify");
+var esmify = require('esmify');
 
 var sourcemaps = require('gulp-sourcemaps');
-var uglify = require('gulp-uglify');
+var uglify = require('gulp-uglify-es').default;
 var buffer = require('vinyl-buffer');
 
 function createTransform(transforms, show) {
@@ -144,16 +145,18 @@ function taskBundle(name, options) {
             cache: { },
             packageCache: {},
             standalone: "ethers",
+            plugin: [ esmify ],
             transform: [ [ createTransform(transforms, show), { global: true } ] ],
         })
+        .transform("babelify", {presets: ["module:metro-react-native-babel-preset"]})
         .bundle()
-        .pipe(source(options.filename))
+        .pipe(source(options.filename));
 
         if (options.minify) {
             result = result.pipe(buffer())
             .pipe(sourcemaps.init({ loadMaps: true }))
             .pipe(uglify({
-                output: { ascii_only: true }
+                output: { ascii_only: false }
             }))
             .pipe(sourcemaps.write('./'))
         }
@@ -185,15 +188,17 @@ gulp.task('shims', function () {
             cache: { },
             packageCache: {},
             standalone: "_shims",
+            plugin: [ esmify ],
             insertGlobalVars: {
                process: function() { return; },
             }
         })
+        .transform("babelify", {presets: ["module:metro-react-native-babel-preset"]})
         .bundle()
         .pipe(source('shims.js'))
         .pipe(buffer())
         .pipe(uglify({
-            output: { ascii_only: true }
+            output: { ascii_only: false }
         }))
         .pipe(gulp.dest('dist'));
 
@@ -285,14 +290,16 @@ function taskLang(locale) {
             entries: [ 'src.ts/wordlists/lang-' + locale + ".ts" ],
             cache: {},
             packageCache: {},
+            plugin: [ esmify ],
             transform: [ [ transformBip39, { global: true } ] ],
         })
+        .transform("babelify", {presets: ["module:metro-react-native-babel-preset"]})
         .plugin(tsify)
         .bundle()
         .pipe(source("wordlist-" + locale + ".js"))
         .pipe(buffer())
         .pipe(uglify({
-            output: { ascii_only: true }
+            output: { ascii_only: false }
         }))
         .pipe(gulp.dest("dist"));
     });
@@ -346,8 +353,10 @@ gulp.task("tests", function() {
         cache: {},
         packageCache: {},
         standalone: "tests",
+        plugin: [ esmify ],
         transform: [ [ createTransform(transforms), { global: true } ] ],
     })
+    .transform("babelify", {presets: ["module:metro-react-native-babel-preset"]})
     .bundle()
     .pipe(source("tests.js"))
     .pipe(gulp.dest("tests/dist/"));
