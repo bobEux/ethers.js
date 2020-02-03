@@ -247,6 +247,9 @@ function checkTransactionResponse(transaction: any): TransactionResponse {
     if (typeof(networkId) !== 'number') { networkId = 0; }
 
     result.networkId = networkId;
+    if (result.chainId == null && networkId != null) {
+        result.chainId = networkId;
+    }
 
     // 0x0000... should actually be null
     if (result.blockHash && result.blockHash.replace(/0/g, '') === 'x') {
@@ -573,6 +576,8 @@ export class BaseProvider extends Provider {
 
     private _doPoll(): void {
         this.getBlockNumber().then((blockNumber) => {
+            if (!this.polling) { return; }
+
             this._setFastBlockNumber(blockNumber);
 
             // If the block hasn't changed, meh.
@@ -1176,7 +1181,10 @@ export class BaseProvider extends Provider {
         // If it is already an address, nothing to resolve
         try {
             return Promise.resolve(getAddress(name));
-        } catch (error) { }
+        } catch (error) {
+            // See #694
+            if (isHexString(name)) { throw error; }
+        }
 
         let self = this;
 
