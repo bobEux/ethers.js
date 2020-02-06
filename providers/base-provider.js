@@ -227,6 +227,9 @@ function checkTransactionResponse(transaction) {
         networkId = 0;
     }
     result.networkId = networkId;
+    if (result.chainId == null && networkId != null) {
+        result.chainId = networkId;
+    }
     // 0x0000... should actually be null
     if (result.blockHash && result.blockHash.replace(/0/g, '') === 'x') {
         result.blockHash = null;
@@ -452,6 +455,9 @@ var BaseProvider = /** @class */ (function (_super) {
     BaseProvider.prototype._doPoll = function () {
         var _this = this;
         this.getBlockNumber().then(function (blockNumber) {
+            if (!_this.polling) {
+                return;
+            }
             _this._setFastBlockNumber(blockNumber);
             // If the block hasn't changed, meh.
             if (blockNumber === _this._lastBlockNumber) {
@@ -1044,7 +1050,12 @@ var BaseProvider = /** @class */ (function (_super) {
         try {
             return Promise.resolve(address_1.getAddress(name));
         }
-        catch (error) { }
+        catch (error) {
+            // See #694
+            if (bytes_1.isHexString(name)) {
+                throw error;
+            }
+        }
         var self = this;
         var nodeHash = hash_1.namehash(name);
         // Get the addr from the resovler

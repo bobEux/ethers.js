@@ -311,6 +311,13 @@ function addMethod(method: any): void {
             let signature = formatSignature(method).replace(/tuple/g, '');
             let sighash = id(signature).substring(0, 10);
 
+            let isConst = false;
+            if (method.constant != null) {
+                isConst = method.constant;
+            } else if (method.stateMutability != null) {
+                isConst = (method.stateMutability == "view" || method.stateMutability == "pure");
+            }
+
             let description = new _FunctionDescription({
                 inputs: method.inputs,
                 outputs: method.outputs,
@@ -318,7 +325,7 @@ function addMethod(method: any): void {
                 gas: method.gas,
 
                 payable: (method.payable == null || !!method.payable),
-                type: ((method.constant) ? 'call': 'transaction'),
+                type: (isConst ? 'call': 'transaction'),
 
                 name: method.name,
                 signature: signature,
@@ -383,7 +390,9 @@ export class Interface {
     readonly events: { [ name: string ]: _EventDescription };
     readonly deployFunction: _DeployDescription;
 
-    constructor(abi: Array<string | ParamType> | string) {
+    // ParamType is not actually correct here, but for legacy reasons,
+    // we need it. See #721.
+    constructor(abi: Array<string | FunctionFragment | EventFragment | ParamType> | string) {
         errors.checkNew(this, Interface);
 
         if (typeof(abi) === 'string') {

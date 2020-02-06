@@ -1,6 +1,40 @@
 CHANGELOG
 =========
 
+ethers/v4.0.44 (2020-01-29 22:01)
+---------------------------------
+
+  - Fix backwards compatibility with certain parsed JSON objects passed into Interface and Contracts ([#721](https://github.com/ethers-io/ethers.js/issues/721); [0589b31](https://github.com/ethers-io/ethers.js/commit/0589b3102e2da702f4ac19a32c8b083faa6bbeea)).
+  - Updated ENS registry address for all networks ([df51b26](https://github.com/ethers-io/ethers.js/commit/df51b26fe71c33fb8aa610d95c4955647345ce0a)).
+
+ethers/v4.0.43 (2020-01-10 21:14)
+---------------------------------
+
+  - Fixed Contract and Interface constructor abi paramter type; should be a Fragment not a ParamType ([#602](https://github.com/ethers-io/ethers.js/issues/602); [6da5c53](https://github.com/ethers-io/ethers.js/commit/6da5c531206777ceef98d111a12b050a04bdf49c)).
+  - Add missing chainId to transaction responses ([#700](https://github.com/ethers-io/ethers.js/issues/700); [26d3271](https://github.com/ethers-io/ethers.js/commit/26d32716436cd8925a5278173ba72ad54e00eef8)).
+  - Fix resolveName when name is an address with an invalid checksum ([#694](https://github.com/ethers-io/ethers.js/issues/694); [bd066b8](https://github.com/ethers-io/ethers.js/commit/bd066b85421b1d0e575180e0626fcfb70135caf0)).
+  - Fixed testcases for PhantomJS syntax. ([447889](https://github.com/ethers-io/ethers.js/commit/4478896ca5e77be0e20d6d491a092da981ed5343))
+
+
+ethers/v4.0.42 (2020-01-03 18:35)
+---------------------------------
+
+  - Properly handle errors in the IpcProvider ([#695](https://github.com/ethers-io/ethers.js/issues/695); [c76e01e](https://github.com/ethers-io/ethers.js/commit/c76e01e61fd52692f58c516842f7ed3b252b0f83))
+  - Added utility function to compute CREATE2 addresses ([#697](https://github.com/ethers-io/ethers.js/issues/697); [f8087ae](https://github.com/ethers-io/ethers.js/commit/f8087ae39ce7631425b6b4763347a4f9618f9730))
+
+ethers/v4.0.41 (2019-12-21 01:05)
+---------------------------------
+
+  - Added proper support for v0.6 Solidity JSON type ([#688](https://github.com/ethers-io/ethers.js/issues/688); [20f34f1](https://github.com/ethers-io/ethers.js/commit/20f34f1ba9c698d1731cb12c5de1822ad462fd7f)).
+
+ethers/v4.0.40 (2019-11-24 19:58)
+---------------------------------
+
+  - Update elliptic package to protect from Minerva timing attack ([#666](https://github.com/ethers-io/ethers.js/issues/666); [20409c0](https://github.com/ethers-io/ethers.js/commit/20409c083cd428c46cba09488ee609cc14ff1d2b)).
+  - Do not poll if disabled during the previous event loop. ([7a90f18](https://github.com/ethers-io/ethers.js/commit/7a90f18145931e7ff790cd9e1fd549929fbb9023)).
+  - Moved node types to devDependencies ([#663](https://github.com/ethers-io/ethers.js/issues/663); [df1ae61](https://github.com/ethers-io/ethers.js/commit/df1ae611bab0955005b0da6604191b60b34f198f)).
+  - Added provider property to Web3Provider ([#641](https://github.com/ethers-io/ethers.js/issues/641); [6009a26](https://github.com/ethers-io/ethers.js/commit/6009a26c89c359ae44ef4b6e8a664ed57db24f67)).
+
 ethers/v4.0.39 (2019-10-30 19:15)
 ---------------------------------
 
